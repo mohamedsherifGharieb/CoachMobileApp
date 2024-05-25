@@ -107,9 +107,8 @@ class _MainPageState extends State<MainPage> {
 
     _pages = [
       WelcomePage(),
-      WeekPlan(),
       Patients(responseBody: responseBody),
-      PatientTasks(),
+      WeekPlan(),
     ];
     _selectedIndex = 0;
   }
@@ -179,10 +178,9 @@ class _MainPageState extends State<MainPage> {
                 ),
               ),
               buildListTile('Welcome', 0),
-              buildListTile('WeekPlan', 1),
-              buildListTile('Patients', 2),
-              buildListTile('PatientTasks', 3),
-              buildListTile('LogOut', 4),
+              buildListTile('Patients', 1),
+              buildListTile('WeekPlan', 2),
+              buildListTile('LogOut', 3),
             ],
           ),
         ),
@@ -562,14 +560,13 @@ class _WeekPlanState extends State<WeekPlan> {
                       child: Center(
                         child: GestureDetector(
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Week plan $plan selected'),
-                                duration: Duration(seconds: 2),
+                            SelectedWeekPlan = plan;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PatientTasks(),
                               ),
                             );
-                            SelectedWeekPlan = plan;
-                            print("Week plan $plan selected");
                           },
                           child: Text(
                             plan,
@@ -754,9 +751,9 @@ class _PatientTasksState extends State<PatientTasks> {
       String description,
       TimeOfDay? startTime,
       TimeOfDay? endTime,
-      String day) {
+      String day,
+      String program) {
     Map<String, dynamic> patientFileMap = jsonDecode(removeControlCharacters());
-
     List<dynamic> plans = patientFileMap['plans'] ?? [];
 
     for (var plan in plans) {
@@ -774,14 +771,12 @@ class _PatientTasksState extends State<PatientTasks> {
               taskDuration = endMinutes - startMinutes;
             }
 
-            // Check if the task already exists
             int taskIndex =
                 tasks.indexWhere((task) => task['taskName'] == taskTitle);
             if (taskIndex != -1) {
               tasks.removeAt(taskIndex);
             }
 
-            // Add the new or updated task
             tasks.add({
               'taskID': (tasks.length + 1).toString(),
               'taskName': taskTitle,
@@ -804,7 +799,7 @@ class _PatientTasksState extends State<PatientTasks> {
               'percentageOfDay': '0.0',
               'status': 'Not started',
               'submittedPercentage': '0.0',
-              'programs': [],
+              'programs': program,
             });
 
             dayPlanData['tasks'] = tasks;
@@ -828,6 +823,7 @@ class _PatientTasksState extends State<PatientTasks> {
 
     patientFileMap['plans'] = plans;
     PatientFile = jsonEncode(patientFileMap);
+    setState(() {});
     postUpdatedPatientFile();
   }
 
@@ -841,7 +837,6 @@ class _PatientTasksState extends State<PatientTasks> {
     TimeOfDay? _endTime;
 
     if (taskName != null) {
-      // Search for the task by its name and initialize the dialog with its data
       Map<String, dynamic> patientFileMap =
           jsonDecode(removeControlCharacters());
       List<dynamic> plans = patientFileMap['plans'] ?? [];
@@ -1010,8 +1005,10 @@ class _PatientTasksState extends State<PatientTasks> {
                       _startTime,
                       _endTime,
                       day,
+                      _programsController.text,
                     );
                     PatientFile = getPatientFile();
+                    setState(() {});
                   },
                 ),
               ],
