@@ -774,6 +774,14 @@ class _PatientTasksState extends State<PatientTasks> {
               taskDuration = endMinutes - startMinutes;
             }
 
+            // Check if the task already exists
+            int taskIndex =
+                tasks.indexWhere((task) => task['taskName'] == taskTitle);
+            if (taskIndex != -1) {
+              tasks.removeAt(taskIndex);
+            }
+
+            // Add the new or updated task
             tasks.add({
               'taskID': (tasks.length + 1).toString(),
               'taskName': taskTitle,
@@ -823,30 +831,8 @@ class _PatientTasksState extends State<PatientTasks> {
     postUpdatedPatientFile();
   }
 
-  Future<void> postUpdatedPatientFile() async {
-    String url =
-        'https://server---app-d244e2f2d7c9.herokuapp.com/setPatientFile';
-    try {
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'file': PatientFile,
-          'patientName': SelectedPatient,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        print('Patient file updated successfully');
-      } else {
-        print('Failed to update patient file: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error posting patient file: $e');
-    }
-  }
-
-  void _showAddTaskDialog(BuildContext context, String day) {
+  void _showAddTaskDialog(BuildContext context, String day,
+      [String? taskName]) {
     TextEditingController _taskTitleController = TextEditingController();
     TextEditingController _descriptionController = TextEditingController();
     TextEditingController _programsController = TextEditingController();
@@ -854,11 +840,45 @@ class _PatientTasksState extends State<PatientTasks> {
     TimeOfDay? _startTime;
     TimeOfDay? _endTime;
 
+    if (taskName != null) {
+      // Search for the task by its name and initialize the dialog with its data
+      Map<String, dynamic> patientFileMap =
+          jsonDecode(removeControlCharacters());
+      List<dynamic> plans = patientFileMap['plans'] ?? [];
+      for (var plan in plans) {
+        if (plan['weekPlanName'] == SelectedWeekPlan) {
+          weekplan = plan['weekPlan'] ?? [];
+          for (var dayPlanData in weekplan) {
+            if (dayPlanData['dayName'] == day) {
+              List<dynamic> tasks = dayPlanData['tasks'] ?? [];
+              for (var task in tasks) {
+                if (task['taskName'] == taskName) {
+                  _taskTitleController.text = task['taskName'] ?? '';
+                  _descriptionController.text = task['description'] ?? '';
+                  _startTime = TimeOfDay(
+                      hour: int.parse(task['startTimeH'] ?? '0'),
+                      minute: int.parse(task['startTimeM'] ?? '0'));
+                  _endTime = TimeOfDay(
+                      hour: int.parse(task['endTimeH'] ?? '0'),
+                      minute: int.parse(task['endTimeM'] ?? '0'));
+                  break;
+                }
+              }
+              break;
+            }
+          }
+          break;
+        }
+      }
+    }
+
     Future<void> _selectTime(
         BuildContext context, bool isStartTime, Function setState) async {
       final TimeOfDay? picked = await showTimePicker(
         context: context,
-        initialTime: TimeOfDay.now(),
+        initialTime: isStartTime
+            ? _startTime ?? TimeOfDay.now()
+            : _endTime ?? TimeOfDay.now(),
         builder: (BuildContext context, Widget? child) {
           return Theme(
             data: ThemeData.light().copyWith(
@@ -895,7 +915,7 @@ class _PatientTasksState extends State<PatientTasks> {
             return AlertDialog(
               title: Center(
                 child: Text(
-                  'Add Task for $day',
+                  taskName == null ? 'Add Task for $day' : 'Edit Task for $day',
                   style: TextStyle(
                     color: Color.fromARGB(255, 16, 63, 102),
                     fontWeight: FontWeight.bold,
@@ -975,7 +995,7 @@ class _PatientTasksState extends State<PatientTasks> {
                 ),
                 TextButton(
                   child: Text(
-                    "Add",
+                    taskName == null ? "Add" : "Update",
                     style: TextStyle(color: Colors.white),
                   ),
                   style: TextButton.styleFrom(
@@ -1000,6 +1020,29 @@ class _PatientTasksState extends State<PatientTasks> {
         );
       },
     );
+  }
+
+  Future<void> postUpdatedPatientFile() async {
+    String url =
+        'https://server---app-d244e2f2d7c9.herokuapp.com/setPatientFile';
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'file': PatientFile,
+          'patientName': SelectedPatient,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print('Patient file updated successfully');
+      } else {
+        print('Failed to update patient file: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error posting patient file: $e');
+    }
   }
 
   List<String> getRange() {
@@ -1136,6 +1179,46 @@ class _PatientTasksState extends State<PatientTasks> {
     );
   }
 
+  Widget _buildNoDataWidget() {
+    final ScrollController _scrollController = ScrollController();
+
+    return Scrollbar(
+      controller: _scrollController,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        controller: _scrollController,
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 5),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(
+                  color: Color.fromARGB(255, 24, 81, 128),
+                  width: 2,
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Container(
+                  width: 200,
+                  child: Text(
+                    'No Plans yet for This Patient',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: const Color.fromARGB(255, 16, 63, 102),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDayBlock(String day) {
     try {
       Map<String, dynamic> jsonData = jsonDecode(removeControlCharacters());
@@ -1238,10 +1321,11 @@ class _PatientTasksState extends State<PatientTasks> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: TaskItem(
-                              task: task['taskName'],
-                              isDone: isDone,
-                              taskData: task,
-                            ),
+                                task: task['taskName'],
+                                isDone: isDone,
+                                day: day,
+                                showAddTaskDialog: _showAddTaskDialog,
+                                taskData: task),
                           ),
                           SizedBox(height: 10),
                         ],
@@ -1261,70 +1345,35 @@ class _PatientTasksState extends State<PatientTasks> {
   }
 }
 
-Widget _buildNoDataWidget() {
-  final ScrollController _scrollController = ScrollController();
-
-  return Scrollbar(
-    controller: _scrollController,
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      controller: _scrollController,
-      child: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.symmetric(vertical: 10, horizontal: 5),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(
-                color: Color.fromARGB(255, 24, 81, 128),
-                width: 2,
-              ),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Center(
-              child: Container(
-                width: 200,
-                child: Text(
-                  'No Plans yet for This Patient',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: const Color.fromARGB(255, 16, 63, 102),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 class TaskItem extends StatefulWidget {
   final String task;
   final bool isDone;
+  final String day;
   final Map<String, dynamic> taskData;
+  final Function(BuildContext context, String day, [String? taskName])
+      showAddTaskDialog;
 
   const TaskItem({
     Key? key,
     required this.task,
     this.isDone = false,
+    required this.day,
     required this.taskData,
+    required this.showAddTaskDialog,
   }) : super(key: key);
 
   @override
-  _TaskItemState createState() => _TaskItemState(taskData: taskData);
+  _TaskItemState createState() =>
+      _TaskItemState(taskName: task, day: day, taskData: taskData);
 }
 
 class _TaskItemState extends State<TaskItem> {
   bool _isHovered = false;
+  final String taskName;
   final Map<String, dynamic> taskData;
-  bool TaskRunning = false;
-  String CurrentTask = '';
-
-  _TaskItemState({required this.taskData});
-
+  final String day;
+  _TaskItemState(
+      {required this.taskName, required this.day, required this.taskData});
   String getname() {
     return taskData['taskName'] ?? 'Unnamed Task';
   }
@@ -1369,14 +1418,6 @@ class _TaskItemState extends State<TaskItem> {
     return taskData['programs'] ?? [];
   }
 
-  void setTaskRunning(bool t) {
-    TaskRunning = t;
-  }
-
-  String getCT() {
-    return CurrentTask;
-  }
-
   @override
   Widget build(BuildContext context) {
     String taskName = getname();
@@ -1385,17 +1426,15 @@ class _TaskItemState extends State<TaskItem> {
     String description = getDesc();
     String submittedPercentage = SubPer();
     List<dynamic> programs = Programs();
-
     String programNames = '';
+    String taskreview = taskReview();
     for (var program in programs) {
       String baseName = program['baseName'] ?? 'Unnamed Program';
       programNames += '$baseName, ';
     }
-
     programNames = programNames.isNotEmpty
         ? programNames.substring(0, programNames.length - 2)
         : '';
-
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -1432,117 +1471,135 @@ class _TaskItemState extends State<TaskItem> {
                             ),
                           ),
                           content: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: 'Task Name',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              Color.fromARGB(255, 16, 63, 102)),
-                                    ),
-                                    TextSpan(
-                                      text: ': $taskName',
-                                    ),
-                                  ],
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'Task Name',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Color.fromARGB(
+                                                255, 16, 63, 102)),
+                                      ),
+                                      TextSpan(
+                                        text: ': $taskName',
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              SizedBox(height: 10),
-                              Text.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: 'Start Time',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              Color.fromARGB(255, 16, 63, 102)),
-                                    ),
-                                    TextSpan(
-                                      text: ': $startTime',
-                                    ),
-                                  ],
+                                SizedBox(height: 10),
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'Start Time',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Color.fromARGB(
+                                                255, 16, 63, 102)),
+                                      ),
+                                      TextSpan(
+                                        text: ': $startTime',
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              SizedBox(height: 10),
-                              Text.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: 'End Time',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              Color.fromARGB(255, 16, 63, 102)),
-                                    ),
-                                    TextSpan(
-                                      text: ': $endTime',
-                                    ),
-                                  ],
+                                SizedBox(height: 10),
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'End Time',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Color.fromARGB(
+                                                255, 16, 63, 102)),
+                                      ),
+                                      TextSpan(
+                                        text: ': $endTime',
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              SizedBox(height: 10),
-                              Text.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: 'Description',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              Color.fromARGB(255, 16, 63, 102)),
-                                    ),
-                                    TextSpan(
-                                      text: ': $description',
-                                    ),
-                                  ],
+                                SizedBox(height: 10),
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'Description',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Color.fromARGB(
+                                                255, 16, 63, 102)),
+                                      ),
+                                      TextSpan(
+                                        text: ': $description',
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              SizedBox(height: 10),
-                              Text.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: 'Submitted Percentage',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              Color.fromARGB(255, 16, 63, 102)),
-                                    ),
-                                    TextSpan(
-                                      text: ': $submittedPercentage',
-                                    ),
-                                  ],
+                                SizedBox(height: 10),
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'Submitted Percentage',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Color.fromARGB(
+                                                255, 16, 63, 102)),
+                                      ),
+                                      TextSpan(
+                                        text: ': $submittedPercentage',
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              SizedBox(height: 10),
-                              Text.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: 'Programs',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              Color.fromARGB(255, 16, 63, 102)),
-                                    ),
-                                    TextSpan(
-                                      text: ': $programNames',
-                                    ),
-                                  ],
+                                SizedBox(height: 10),
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'Programs',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Color.fromARGB(
+                                                255, 16, 63, 102)),
+                                      ),
+                                      TextSpan(
+                                        text: ': $programNames',
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
+                                SizedBox(height: 10),
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'Task Review',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Color.fromARGB(
+                                                255, 16, 63, 102)),
+                                      ),
+                                      TextSpan(
+                                        text: ': $taskreview',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ]),
                           actions: [
                             if (!widget.isDone)
                               TextButton(
                                 onPressed: () {
                                   Navigator.of(context).pop();
+                                  widget.showAddTaskDialog(
+                                      context, day, taskName);
                                 },
                                 child: Text(
                                   'Edit',
