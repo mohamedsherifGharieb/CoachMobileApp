@@ -1895,7 +1895,7 @@ class _PatientsState extends State<Patients> {
                   elevation: 4.0,
                   child: Container(
                     width: 200,
-                    height: 100,
+                    height: 120,
                     color: Colors.white,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
