@@ -755,6 +755,8 @@ class _PatientTasksState extends State<PatientTasks> {
       String program) {
     Map<String, dynamic> patientFileMap = jsonDecode(removeControlCharacters());
     List<dynamic> plans = patientFileMap['plans'] ?? [];
+    List<dynamic> programs = [];
+    programs.add({'baseName': program});
 
     for (var plan in plans) {
       if (plan['weekPlanName'] == SelectedWeekPlan) {
@@ -799,7 +801,7 @@ class _PatientTasksState extends State<PatientTasks> {
               'percentageOfDay': '0.0',
               'status': 'Not started',
               'submittedPercentage': '0.0',
-              'programs': program,
+              'programs': programs,
             });
 
             dayPlanData['tasks'] = tasks;

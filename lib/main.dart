@@ -7,7 +7,7 @@ class MyAppModel extends ChangeNotifier {}
 void main() {
   runApp(
     ChangeNotifierProvider(
-      create: (_) => MyAppModel(), // Create an instance of MyAppModel
+      create: (_) => MyAppModel(),
       child: MyApp(),
     ),
   );
@@ -23,8 +23,7 @@ class MyApp extends StatelessWidget {
       title: 'Monitor',
       theme: ThemeData(
         primaryColor: Colors.blue,
-        scaffoldBackgroundColor: Colors
-            .blue, // Set the background color of the entire application to cyan
+        scaffoldBackgroundColor: Colors.blue,
       ),
       home: LoginScreen(),
     );
