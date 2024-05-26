@@ -195,8 +195,15 @@ class _MainPageState extends State<MainPage> {
   Widget buildListTile(String title, int index) {
     return InkWell(
       onTap: () {
-        _onItemTapped(index);
-        Navigator.pop(context);
+        if (index == 3) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => LoginScreen()),
+          );
+        } else {
+          _onItemTapped(index);
+          Navigator.pop(context);
+        }
       },
       splashColor: Color.fromARGB(255, 24, 81, 128).withOpacity(0.5),
       borderRadius: BorderRadius.circular(10),
