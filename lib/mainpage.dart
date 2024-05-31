@@ -14,6 +14,9 @@ String SelectedWeekPlan = "";
 var weekplan = [];
 
 String removeControlCharacters() {
+  if (PatientFile == null) {
+    return '';
+  }
   RegExp controlCharactersRegex = RegExp(r'[\x00-\x1F\x7F]');
   return PatientFile.replaceAll(controlCharactersRegex, '');
 }
@@ -1658,14 +1661,12 @@ class _PatientsState extends State<Patients> {
   String _selectedPatient = '';
   Offset _position = Offset(0, 0);
   final String responseBody;
-  List<String> patientNames = [];
 
   _PatientsState({required this.responseBody});
 
   @override
   void initState() {
     super.initState();
-    patientNames = extractPatientNames(responseBody);
   }
 
   void _showOptions(BuildContext context, String patientName, Offset position) {
@@ -1703,18 +1704,25 @@ class _PatientsState extends State<Patients> {
 
   Future<void> addPatient(String patientName) async {
     String url = "https://server---app-d244e2f2d7c9.herokuapp.com/addPatient/";
+    String chatUrl = "https://server---app-d244e2f2d7c9.herokuapp.com/Chat/";
     String queryString = "?coachName=$Username&patientName=$patientName";
 
     try {
+      print("Sending request to add patient: $patientName");
+      http.Response chatResponse =
+          await http.get(Uri.parse(chatUrl + queryString));
       http.Response response = await http.get(Uri.parse(url + queryString));
 
       if (response.statusCode == 200) {
         print("Patient added successfully: $patientName");
+        print("Before adding to patientNames: $patientNames");
         setState(() {
           patientNames.add(patientName);
         });
+        print("After adding to patientNames: $patientNames");
       } else {
         print('Error adding patient: ${response.statusCode}');
+        print('Response body: ${response.body}');
       }
     } catch (error) {
       print('Error: $error');
@@ -1745,7 +1753,6 @@ class _PatientsState extends State<Patients> {
                         ),
                         onPressed: () {
                           Navigator.of(context).pop();
-                          print("added $patient");
                           addPatient(patient);
                         },
                         child: Text(
@@ -1895,7 +1902,7 @@ class _PatientsState extends State<Patients> {
                   elevation: 4.0,
                   child: Container(
                     width: 200,
-                    height: 100,
+                    height: 120,
                     color: Colors.white,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
