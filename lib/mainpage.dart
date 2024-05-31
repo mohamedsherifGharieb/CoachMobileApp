@@ -14,8 +14,8 @@ String SelectedWeekPlan = "";
 var weekplan = [];
 
 String removeControlCharacters() {
-  if (PatientFile == null) {
-    return '';
+  if (PatientFile.isEmpty) {
+    return '{}';
   }
   RegExp controlCharactersRegex = RegExp(r'[\x00-\x1F\x7F]');
   return PatientFile.replaceAll(controlCharactersRegex, '');
@@ -623,9 +623,11 @@ class _PatientTasksState extends State<PatientTasks> {
       7,
       (index) => FlSpot(index.toDouble(), 0),
     );
+
     try {
       for (int i = 0; i < weekplan.length; i++) {
-        double dayProgress = double.tryParse(weekplan[i][1].toString()) ?? 0.0;
+        double dayProgress =
+            double.tryParse(weekplan[i]['dayProgress'].toString()) ?? 0.0;
         if (dayProgress < 0.99) {
           dayProgress *= 100;
         }
@@ -677,7 +679,7 @@ class _PatientTasksState extends State<PatientTasks> {
                       lineBarsData: [
                         LineChartBarData(
                           spots: seriesList,
-                          isCurved: true,
+                          isCurved: false,
                           colors: [Color.fromARGB(255, 24, 81, 128)],
                           barWidth: 4,
                           isStrokeCapRound: true,
